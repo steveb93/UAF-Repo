@@ -1,0 +1,5 @@
+id,startId,endId,type
+51cc8834-68f6-49dd-a5dc-b69f5f89f413,node_1,node_2,ENABLES
+1a90d5a8-eb74-4674-8270-20fba8bd464c,node_2,node_3,USES
+70708a29-df76-4dbc-8587-0a683169d92f,node_3,node_5,MANAGES
+25ee938f-fd29-4d21-8cbb-d47d98620efa,node_4,node_6,MANAGES

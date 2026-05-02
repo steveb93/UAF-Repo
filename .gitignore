@@ -1,12 +1,17 @@
 .vscode/
 .venv/
-
+.devcontainer/
+docker-compose/
 neo4j_mcp_driver.egg-info/
 Test/
 __pycache__/
 
-
+# Ignore log files and compiled Python files
 *.log
 
+# Ignore compiled Python files
 *.pyc
+
+# Ignore CLAUDE files
+CLAUDE.md
 

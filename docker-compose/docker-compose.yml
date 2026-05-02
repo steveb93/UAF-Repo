@@ -18,8 +18,7 @@ services:
       - F:/neo4j-docker/plugins:/plugins
 
   devcontainer:
-    image: mcr.microsoft.com/devcontainers/universal:2
-    container_name: claude-code-docker
+    image: mcr.microsoft.com/devcontainers/python:3.12
     volumes:
       - ..:/workspace:cached
     working_dir: /workspace

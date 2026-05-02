@@ -1,6 +1,0 @@
-{
-  "name": "UAF Dev Container",
-  "dockerComposeFile": "../docker-compose/docker-compose.yml",
-  "service": "devcontainer",
-  "workspaceFolder": "/workspace"
-}

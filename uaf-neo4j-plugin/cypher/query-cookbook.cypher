@@ -40,7 +40,7 @@ ORDER BY domain, total DESC;
 // 2. TRACEABILITY — Capability → Operational Activity chain
 // ─────────────────────────────────────────────────────────────────────────────
 
-MATCH path = (cap:Capability)-[:REALISES|CONTRIBUTES_TO|SATISFIES*1..4]->(act:OperationalActivity)
+MATCH path = (cap:Capability)-[:REALISES|SATISFIES|TRACES_TO*1..4]->(act:OperationalActivity)
 RETURN path
 LIMIT 50;
 
@@ -53,8 +53,8 @@ RETURN cap.name AS capability,
        target.stereotype AS targetType
 ORDER BY cap.name;
 
-// Full capability decomposition tree
-MATCH path = (cap:Capability)-[:COMPOSED_OF|SPECIALISES*1..5]->(sub:Capability)
+// Capability specialisation / sub-capability tree
+MATCH path = (cap:Capability)-[:SPECIALISES|GENERALIZATION*1..5]->(sub:Capability)
 RETURN cap.name AS root, [n IN nodes(path) | n.name] AS chain
 LIMIT 50;
 

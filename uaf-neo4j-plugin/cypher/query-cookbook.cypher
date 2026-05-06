@@ -40,7 +40,7 @@ ORDER BY domain, total DESC;
 // 2. TRACEABILITY — Capability → Operational Activity chain
 // ─────────────────────────────────────────────────────────────────────────────
 
-MATCH path = (cap:Capability)-[:REALISES|SATISFIES|TRACES_TO*1..4]->(act:OperationalActivity)
+MATCH path = (cap:Capability)-[:REALISES|SATISFIES|TRACES_TO|EXHIBITS*1..4]->(act:OperationalActivity)
 RETURN path
 LIMIT 50;
 
@@ -62,9 +62,9 @@ LIMIT 50;
 // 3. CROSS-DOMAIN — Strategic → Resource implementation traces
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Strategic capabilities traced to Resource performers
+// Strategic capabilities linked to Resource elements (any path, any rel type)
 MATCH path = (st {domain: 'STRATEGIC'})
-             -[:REALISES|TRACES_TO|ALLOCATED_TO|SATISFIES|IMPLEMENTS*1..6]->
+             -[:REALISES|TRACES_TO|ALLOCATED_TO|SATISFIES|IMPLEMENTS|EXHIBITS*1..6]->
              (rs {domain: 'RESOURCE'})
 WHERE st.stereotype IS NOT NULL AND rs.stereotype IS NOT NULL
 RETURN st.name        AS strategic,
@@ -75,10 +75,20 @@ RETURN st.name        AS strategic,
 ORDER BY hops
 LIMIT 50;
 
-// Capabilities traced to physical hardware/software specifically
+// Capabilities directly exhibiting Systems (primary Capability → System link in UAF)
+MATCH (cap:Capability)-[r:EXHIBITS]->(sys)
+WHERE sys.domain = 'RESOURCE'
+RETURN cap.name AS capability,
+       sys.name AS system, sys.stereotype AS systemType
+ORDER BY cap.name;
+
+// Capabilities traced to physical resource elements specifically
 MATCH path = (cap:Capability)
-             -[:REALISES|TRACES_TO|ALLOCATED_TO|SATISFIES|IMPLEMENTS*1..6]->
-             (ph:HardwareElement|SoftwareElement|ActualSystem|PhysicalArchitecture|NaturalResource)
+             -[:REALISES|TRACES_TO|ALLOCATED_TO|SATISFIES|IMPLEMENTS|EXHIBITS*1..6]->
+             (ph {domain: 'RESOURCE'})
+WHERE ph.stereotype IN ['HardwareElement','SoftwareElement','Software','System',
+                        'ResourceSystem','ActualSystem','PhysicalArchitecture',
+                        'NaturalResource','Technology','SystemBlock']
 RETURN cap.name AS capability,
        ph.name  AS implementation,
        ph.stereotype AS implType,
@@ -196,7 +206,7 @@ ORDER BY d.name;
 MATCH (n)
 WHERE n.stereotype IS NOT NULL
   AND NOT (n)-[:REALISES|TRACES_TO|ALLOCATED_TO|SATISFIES|PERFORMS|
-                DEPENDS_ON|IMPLEMENTS|ASSIGNED_TO|CONNECTED_TO|FLOWS_TO]-()
+                DEPENDS_ON|IMPLEMENTS|ASSIGNED_TO|CONNECTED_TO|FLOWS_TO|EXHIBITS]-()
 RETURN n.name, n.stereotype, n.domain
 ORDER BY n.domain, n.stereotype
 LIMIT 50;
@@ -269,7 +279,7 @@ ORDER BY modelCount DESC;
 // Cross-model traceability: capabilities in one model realised by resources in another
 MATCH (m1:SystemModel)-[:DEFINES]->(cap:Capability),
       (m2:SystemModel)-[:DEFINES]->(res),
-      (cap)-[:REALISES|SATISFIES|ALLOCATED_TO*1..4]->(res)
+      (cap)-[:REALISES|SATISFIES|ALLOCATED_TO|EXHIBITS*1..4]->(res)
 WHERE m1.name <> m2.name
   AND res.domain = 'RESOURCE'
 RETURN m1.name AS capModel, cap.name AS capability,

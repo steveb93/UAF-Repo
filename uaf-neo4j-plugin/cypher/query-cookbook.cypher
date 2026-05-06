@@ -134,7 +134,57 @@ RETURN ri.name, ri.tv_dataType
 ORDER BY ri.name;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. DIAGRAM MEMBERSHIP — Elements by diagram
+// 5. BPMN PROCESS DATA — Data objects, inputs, outputs and stores
+// ─────────────────────────────────────────────────────────────────────────────
+
+// All BPMN data elements with their owner process and data attributes
+MATCH (d)
+WHERE d.stereotype IN ['DataObject', 'DataInput', 'DataOutput', 'DataStore']
+RETURN d.name AS dataElement,
+       d.stereotype AS type,
+       d.packageName AS ownerProcess,
+       d.qualifiedName,
+       [k IN keys(d) WHERE k STARTS WITH 'tv_' | {attr: k, value: d[k]}] AS attributes
+ORDER BY d.packageName, d.stereotype, d.name;
+
+// Data objects produced by an operational activity (ObjectFlow source → data)
+MATCH (act)-[r:FLOWS_TO|INFORMATION_FLOW]->(d)
+WHERE d.stereotype IN ['DataObject', 'DataInput', 'DataOutput', 'DataStore']
+  AND act.stereotype IS NOT NULL
+RETURN act.name AS sourceActivity, act.stereotype AS actType,
+       type(r)   AS rel,
+       d.name    AS dataElement, d.stereotype AS dataType
+ORDER BY act.name;
+
+// Data objects consumed by an operational activity (data → ObjectFlow destination)
+MATCH (d)-[r:FLOWS_TO|INFORMATION_FLOW]->(act)
+WHERE d.stereotype IN ['DataObject', 'DataInput', 'DataOutput', 'DataStore']
+  AND act.stereotype IS NOT NULL
+RETURN d.name     AS dataElement, d.stereotype AS dataType,
+       type(r)    AS rel,
+       act.name   AS destinationActivity, act.stereotype AS actType
+ORDER BY act.name;
+
+// Full source → data object → destination chain for a given process
+// Replace 'MPS' with the process name fragment you want to filter on
+MATCH (src)-[:FLOWS_TO|INFORMATION_FLOW]->(d)-[:FLOWS_TO|INFORMATION_FLOW]->(dst)
+WHERE d.stereotype IN ['DataObject', 'DataInput', 'DataOutput', 'DataStore']
+  AND (src.packageName CONTAINS 'MPS' OR d.packageName CONTAINS 'MPS')
+RETURN src.name AS source, src.stereotype AS sourceType,
+       d.name   AS dataObject, d.stereotype AS dataType,
+       dst.name AS destination, dst.stereotype AS destType
+ORDER BY d.name;
+
+// Data objects within a specific owner process (replace name as needed)
+MATCH (d)
+WHERE d.stereotype IN ['DataObject', 'DataInput', 'DataOutput', 'DataStore']
+  AND d.packageName CONTAINS 'Master Production Scheduling'
+RETURN d.name, d.stereotype,
+       [k IN keys(d) WHERE k STARTS WITH 'tv_' | {attr: k, value: d[k]}] AS attributes
+ORDER BY d.stereotype, d.name;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. DIAGRAM MEMBERSHIP — Elements by diagram
 // ─────────────────────────────────────────────────────────────────────────────
 
 // All elements in a named diagram
@@ -156,7 +206,7 @@ ORDER BY elements DESC
 LIMIT 30;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. RELATIONSHIPS — Cross-domain and type analysis
+// 7. RELATIONSHIPS — Cross-domain and type analysis
 // ─────────────────────────────────────────────────────────────────────────────
 
 // All relationships between Operational and Resource domains
@@ -180,7 +230,7 @@ RETURN type(r) AS rel, target.name AS target, target.stereotype AS targetType
 ORDER BY type(r);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 7. METAMODEL — Stereotype and domain queries
+// 8. METAMODEL — Stereotype and domain queries
 // ─────────────────────────────────────────────────────────────────────────────
 
 // All instances of a stereotype (via INSTANCE_OF)
@@ -199,7 +249,7 @@ RETURN d.name AS domain, collect(s.name) AS stereotypes
 ORDER BY d.name;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 8. QUALITY — Orphan nodes and coverage checks
+// 9. QUALITY — Orphan nodes and coverage checks
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Elements with no UAF relationships (isolated nodes)
@@ -226,7 +276,7 @@ RETURN ri.id, ri.name, ri.qualifiedName
 ORDER BY ri.name;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 9. FULL-TEXT SEARCH — Find elements by keyword
+// 10. FULL-TEXT SEARCH — Find elements by keyword
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Requires FULLTEXT INDEX uaf_element_text (created in init_uaf_graph.cypher)
@@ -237,7 +287,7 @@ ORDER BY score DESC
 LIMIT 20;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 10. PATHFINDING — Shortest path between two elements
+// 11. PATHFINDING — Shortest path between two elements
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Use MSOSA element IDs — names are not unique
@@ -254,7 +304,7 @@ RETURN path
 LIMIT 10;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 11. MULTI-MODEL — SystemModel provenance queries
+// 12. MULTI-MODEL — SystemModel provenance queries
 // ─────────────────────────────────────────────────────────────────────────────
 
 // List all system models and how many elements each defines
@@ -287,7 +337,7 @@ RETURN m1.name AS capModel, cap.name AS capability,
 ORDER BY m1.name, cap.name;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 12. DIAGNOSTICS — Verify what is in the graph and debug missing elements
+// 13. DIAGNOSTICS — Verify what is in the graph and debug missing elements
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Summary: element counts by domain and stereotype

@@ -221,9 +221,9 @@ RETURN src.name AS source, src.stereotype AS srcType,
 ORDER BY type(r)
 LIMIT 100;
 
-// Relationship type frequency (UAF instance relationships only)
+// Relationship type frequency (instance relationships only — excludes metamodel edges)
 MATCH ()-[r]->()
-WHERE type(r) NOT IN ['INSTANCE_OF', 'BELONGS_TO', 'DEFINES']
+WHERE type(r) NOT IN ['INSTANCE_OF', 'BELONGS_TO', 'DEFINED_BY', 'DEFINES']
 RETURN type(r) AS relType, count(*) AS frequency
 ORDER BY frequency DESC;
 
@@ -250,6 +250,16 @@ ORDER BY instances DESC;
 MATCH (s:Stereotype)-[:BELONGS_TO]->(d:Domain)
 RETURN d.name AS domain, collect(s.name) AS stereotypes
 ORDER BY d.name;
+
+// View the metamodel by modelling language
+MATCH (s:Stereotype)-[:DEFINED_BY]->(l:ModellingLanguage)
+RETURN l.name AS language, l.version AS version, collect(s.name) AS stereotypes
+ORDER BY l.name;
+
+// All modelling languages registered in the graph
+MATCH (l:ModellingLanguage)
+RETURN l.name AS language, l.version AS version
+ORDER BY l.name;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 9. QUALITY — Orphan nodes and coverage checks
@@ -351,7 +361,7 @@ ORDER BY domain, count DESC;
 
 // Which stereotype labels are present as node labels in this graph?
 CALL db.labels() YIELD label
-WHERE label NOT IN ['SystemModel', 'Stereotype', 'Domain']
+WHERE label NOT IN ['SystemModel', 'Stereotype', 'Domain', 'ModellingLanguage']
 RETURN label
 ORDER BY label;
 
@@ -401,9 +411,70 @@ MATCH (n)
 WHERE n.stereotype IS NOT NULL
 WITH count(n) AS nodes
 MATCH ()-[r]->()
-WHERE type(r) NOT IN ['INSTANCE_OF', 'BELONGS_TO', 'DEFINES']
+WHERE type(r) NOT IN ['INSTANCE_OF', 'BELONGS_TO', 'DEFINED_BY', 'DEFINES']
 RETURN nodes, count(r) AS rels;
 
 // All tagged values on a specific ResourceInformation element
 MATCH (ri:ResourceInformation {name: '_REPLACE_WITH_NAME_'})
 RETURN [k IN keys(ri) WHERE k STARTS WITH 'tv_' | {attribute: k, value: ri[k]}] AS dataModel;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 14. HYBRID MODELS — Cross-language queries (UAF + SysML + BPMN)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Element counts by modelling language
+MATCH (n) WHERE n.language IS NOT NULL AND n.stereotype IS NOT NULL
+RETURN n.language AS language, count(*) AS elements
+ORDER BY elements DESC;
+
+// All SysML elements in the graph
+MATCH (n) WHERE n.language = 'SysML' AND n.stereotype IS NOT NULL
+RETURN n.stereotype AS stereotype, count(*) AS total
+ORDER BY total DESC;
+
+// All BPMN elements in the graph
+MATCH (n) WHERE n.language = 'BPMN' AND n.stereotype IS NOT NULL
+RETURN n.name, n.stereotype, n.packageName
+ORDER BY n.stereotype, n.name;
+
+// SysML Requirements satisfied by UAF Capabilities
+MATCH (cap)-[r:SATISFIES|TRACES_TO]->(req:Requirement)
+WHERE cap.language = 'UAF' AND req.language = 'SysML'
+RETURN cap.name AS capability, cap.stereotype AS capType,
+       type(r)   AS rel,
+       req.name  AS requirement
+ORDER BY cap.name;
+
+// SysML Blocks allocated to UAF Resource elements
+MATCH (blk:Block)-[r:ALLOCATED_TO]->(res)
+WHERE blk.language = 'SysML' AND res.domain = 'RESOURCE'
+RETURN blk.name AS block, res.name AS resource, res.stereotype AS resourceType
+ORDER BY blk.name;
+
+// BPMN process elements (Tasks, Gateways, Events) in sequence
+MATCH (a)-[r:SEQUENCE_FLOW]->(b)
+WHERE a.language = 'BPMN' AND b.language = 'BPMN'
+RETURN a.name AS from, a.stereotype AS fromType,
+       b.name AS to,   b.stereotype AS toType,
+       a.packageName AS process
+ORDER BY a.packageName, a.name;
+
+// Cross-language relationships: source language → target language breakdown
+MATCH (src)-[r]->(tgt)
+WHERE src.language IS NOT NULL AND tgt.language IS NOT NULL
+  AND type(r) NOT IN ['INSTANCE_OF', 'BELONGS_TO', 'DEFINED_BY', 'DEFINES']
+RETURN src.language AS fromLanguage, type(r) AS relType,
+       tgt.language AS toLanguage, count(*) AS frequency
+ORDER BY frequency DESC;
+
+// Elements from a specific language with their outgoing relationships
+// Replace 'SysML' with 'UAF' or 'BPMN' as needed
+MATCH (src {language: 'SysML'})-[r]->(tgt)
+WHERE src.stereotype IS NOT NULL
+  AND type(r) NOT IN ['INSTANCE_OF', 'BELONGS_TO', 'DEFINED_BY']
+RETURN src.name AS source, src.stereotype AS srcType,
+       type(r)   AS rel,
+       tgt.name  AS target, tgt.stereotype AS tgtType,
+       tgt.language AS targetLanguage
+ORDER BY src.name
+LIMIT 100;
